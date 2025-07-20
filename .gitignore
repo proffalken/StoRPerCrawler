@@ -51,3 +51,5 @@ log/
 *.log
 test_rt_cmd_sequence.sh.bak
 
+# Environment Files
+.env

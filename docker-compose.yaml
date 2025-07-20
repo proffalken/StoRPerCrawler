@@ -1,0 +1,42 @@
+version: "3.7"
+
+services:
+  micro_ros_agent:
+    image: microros/micro-ros-agent:kilted
+    environment:
+      - ROS_DOMAIN_ID=0
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+    command: ["udp4","--port","8888","-v5"]
+    ports:
+      - "8888:8888/udp"
+    networks:
+      - microros-net
+    restart: unless-stopped
+
+  ros_echo:
+    image: ros:kilted-ros-base
+    environment:
+      - ROS_DOMAIN_ID=0
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+    command: [
+      "bash","-lc",
+      ". /opt/ros/kilted/setup.bash && \
+        echo \"[Echo] Listening on /cmd_vel…\" && \
+        ros2 topic echo /rt/cmd_vel \
+       "
+    ]
+    networks:
+      - microros-net
+    restart: unless-stopped
+
+networks:
+  microros-net:
+    driver: bridge
+    driver_opts:
+      # <-- this turns ON multicast on our bridge so RTPS discovery will work
+      com.docker.network.bridge.enable_multicast: "true"
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.25.0.0/16
+
