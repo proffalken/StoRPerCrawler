@@ -1,0 +1,53 @@
+# === PlatformIO ===
+.pio/
+.pioenvs/
+.piolibdeps/
+libdeps/
+.vscode/
+
+# Build and firmware artifacts
+*.elf
+*.bin
+*.hex
+*.map
+
+# PlatformIO metadata
+.cache/
+*.pyc
+__pycache__/
+*.DS_Store
+
+# Editor/OS files
+*.swp
+*.swo
+*.bak
+*.tmp
+*.log
+*.orig
+*.rej
+*.~*
+*~
+
+# Mac OS
+.DS_Store
+
+# Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Micro-ROS workspace (if used)
+build/
+install/
+log/
+
+# Docker
+*.tar
+*.img
+*.pid
+
+# Bash test scripts (optional backup or generated files)
+*.log
+test_rt_cmd_sequence.sh.bak
+
