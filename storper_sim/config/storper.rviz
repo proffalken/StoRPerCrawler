@@ -1,0 +1,39 @@
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_common/RobotModel
+      Enabled: true
+      Name: Robot Model
+      Robot Description: robot_description
+    - Class: rviz_default_plugins/TF
+      Enabled: true
+      Frame Timeout: 10.0
+      Frames:
+        All Enabled: true
+      Marker Scale: 1.0
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+      Update Interval: 0.0
+    - Class: rviz_default_plugins/Grid
+      Enabled: true
+      Name: Grid
+      Plane: XY
+      Cell Size: 1
+      Color: 160;160;160
+  Enabled: true
+  Global Options:
+    Background Color: 48;48;48
+    Fixed Frame: base_link
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+    - Class: rviz_default_plugins/SetInitialPose
+    - Class: rviz_default_plugins/SetGoal
+  Value: true
+

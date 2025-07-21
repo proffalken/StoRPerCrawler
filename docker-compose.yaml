@@ -29,6 +29,68 @@ services:
       - microros-net
     restart: unless-stopped
 
+  digital_twin:
+    build:
+      context: ./sim
+      dockerfile: Dockerfile
+    environment:
+      - ROS_DOMAIN_ID=0
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - LIBGL_ALWAYS_INDIRECT=1
+    volumes:
+      - /tmp/runtime-root:/tmp/runtime-root
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ./storper_sim:/root/ros2_ws/src/storper_sim
+    working_dir: /root/ros2_ws
+    command: >
+      bash -c '
+        mkdir -p /tmp/runtime-root && chmod 700 /tmp/runtime-root
+        export AMENT_PREFIX_PATH=/root/ros2_ws/install:$AMENT_PREFIX_PATH
+        source /opt/ros/kilted/setup.bash
+        colcon build --symlink-install --merge-install
+        source install/local_setup.bash
+        ros2 launch storper_sim storper_world.launch.py
+      '
+      #
+      #    command: >
+      #      bash -c "
+      #         while true; do sleep 300; done
+      #      "
+    networks:
+      - microros-net
+    restart: unless-stopped
+    privileged: true
+
+  rviz:
+    build:
+      context: ./sim
+      dockerfile: Dockerfile
+    container_name: rviz
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ./gazebo:/root/ros2_ws/src/storper_sim
+      - ./rviz_data:/root/.rviz2
+    working_dir: /root/ros2_ws
+    command: >
+      bash -lc "
+        source /opt/ros/kilted/setup.bash &&
+        colcon build --merge-install &&
+        source install/setup.bash &&
+        rviz2 -d install/storper_sim/share/storper_sim/config/storper.rviz
+      "
+    networks:
+      - microros-net
+    privileged: true
+    depends_on:
+      - digital_twin
+
+
 networks:
   microros-net:
     driver: bridge
