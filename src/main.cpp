@@ -1,3 +1,4 @@
+#include <OpenTelemetryPico.h>
 #include <micro_ros_platformio.h>
 #include <rcl/rcl.h>
 #include <rclc/rclc.h>
@@ -28,6 +29,9 @@ rcl_allocator_t allocator;
 rclc_executor_t executor;
 rcl_subscription_t sub;
 geometry_msgs__msg__Twist cmd_vel_msg;
+
+OTel::Gauge motorspeed("motor.speed");
+
 
 void setupPWM(int gpio) {
   Serial.print("Configuring PWM on GPIO ");
@@ -74,6 +78,7 @@ void driveMotor(int pinA, int pinB, float value) {
 
 // Callback when Twist message received
 void cmd_vel_callback(const void *msgin) {
+  OTel::Logger::logInfo("Received cmd_vel message.");
   const auto *twist = static_cast<const geometry_msgs__msg__Twist*>(msgin);
   float linear = twist->linear.x;
   float angular = twist->angular.z;
@@ -92,31 +97,46 @@ void cmd_vel_callback(const void *msgin) {
   Serial.print("  right_speed = ");
   Serial.println(right_speed, 3);
 
+  motorspeed.set(left_speed, {{"motor", "A"}});
+  motorspeed.set(right_speed, {{"motor", "B"}});
+
   // Drive motors
   driveMotor(LEFT_A, LEFT_B, left_speed);
   driveMotor(RIGHT_A, RIGHT_B, right_speed);
 }
 
 void setup() {
+  auto mainSpan = OTel::Tracer::startSpan("setup");
+
+  auto wifiSpan = OTel::Tracer::startSpan("setup_wifi", mainSpan);
+  IPAddress agent_ip(192, 168, 8, 5);
+  Serial.println("Setting up micro-ROS WiFi transport...");
+  set_microros_wifi_transports((char*)WIFI_SSID, (char*)WIFI_PASS, agent_ip, AGENT_PORT);
+  OTel::Tracer::endSpan(wifiSpan);
+  delay(2000);
+
+  OTel::Logger::begin("storper_bot", "storper.local", "v0.0.1");
+  OTel::Logger::logInfo("Setup started.");
+  auto pinSpan = OTel::Tracer::startSpan("setup_pins", mainSpan);
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(LEFT_A, OUTPUT);
   pinMode(LEFT_B, OUTPUT);
   pinMode(RIGHT_A, OUTPUT);
   pinMode(RIGHT_B, OUTPUT);
+  OTel::Tracer::endSpan(pinSpan);
 
   Serial.begin(115200);
+  OTel::Logger::logInfo("Serial started.");
   delay(2000);
+  OTel::Logger::logInfo("Starting micro-ROS rover (StoRPer rear motors)...");
   Serial.println("Starting micro-ROS rover (StoRPer rear motors)...");
 
   setupPWM(12);
   setupPWM(13);
 
   // Set up micro-ROS transport
-  IPAddress agent_ip(192, 168, 8, 5);
-  Serial.println("Setting up micro-ROS WiFi transport...");
-  set_microros_wifi_transports((char*)WIFI_SSID, (char*)WIFI_PASS, agent_ip, AGENT_PORT);
-  delay(2000);
 
+  auto rosTransportSpan = OTel::Tracer::startSpan("setup_ros_transport", mainSpan);
   allocator = rcl_get_default_allocator();
 
   rcl_ret_t rc;
@@ -139,8 +159,11 @@ void setup() {
 
   rc = rclc_executor_add_subscription(&executor, &sub, &cmd_vel_msg, &cmd_vel_callback, ON_NEW_DATA);
   Serial.print("Add sub: "); Serial.println(rc);
+  OTel::Tracer::endSpan(rosTransportSpan);
 
   Serial.println("Rover ready and listening for Twist messages.");
+  OTel::Logger::logInfo("Rover ready and listening for Twist messages.");
+  OTel::Tracer::endSpan(mainSpan);
 }
 
 void loop() {

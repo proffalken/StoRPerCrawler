@@ -114,5 +114,166 @@ namespace OTel {
     static inline char customLabel[64] = "";
   };
 
+  class Gauge {
+   public:
+    Gauge(const char* name) : _name(name) {}
+
+    void set(float value, std::vector<std::pair<const char*, const char*>> labels = {}) {
+      HTTPClient http;
+      JsonDocument doc;
+
+      JsonArray resource_metrics = doc["resource_metrics"].to<JsonArray>();
+      JsonObject resource_metric = resource_metrics.add<JsonObject>();
+      JsonObject resource = resource_metric["resource"].to<JsonObject>();
+      JsonArray resource_attrs = resource["attributes"].to<JsonArray>();
+
+      JsonObject attr1 = resource_attrs.add<JsonObject>();
+      attr1["key"] = "service.name";
+      attr1["value"].to<JsonObject>()["string_value"] = Logger::serviceName;
+
+      JsonObject attr2 = resource_attrs.add<JsonObject>();
+      attr2["key"] = "host.name";
+      attr2["value"].to<JsonObject>()["string_value"] = Logger::hostName;
+
+      JsonObject attr3 = resource_attrs.add<JsonObject>();
+      attr3["key"] = "custom.label";
+      attr3["value"].to<JsonObject>()["string_value"] = Logger::customLabel;
+
+      JsonArray scope_metrics = resource_metric["scope_metrics"].to<JsonArray>();
+      JsonObject scope_metric = scope_metrics.add<JsonObject>();
+      JsonObject scope = scope_metric["scope"].to<JsonObject>();
+      scope["name"] = "otel-embedded";
+      scope["version"] = "1.0";
+      scope_metric["schema_url"] = "https://opentelemetry.io/schemas/1.11.0";
+
+      JsonArray metrics = scope_metric["metrics"].to<JsonArray>();
+      JsonObject metric = metrics.add<JsonObject>();
+      metric["name"] = _name;
+      metric["unit"] = "1";
+
+      JsonObject gauge = metric["gauge"].to<JsonObject>();
+      JsonArray data_points = gauge["data_points"].to<JsonArray>();
+      JsonObject point = data_points.add<JsonObject>();
+
+      uint64_t now = Logger::currentTimeUnixNano();
+      point["time_unix_nano"] = now;
+      point["as_double"] = value;
+
+      JsonArray attrs = point["attributes"].to<JsonArray>();
+      for (auto& label : labels) {
+        JsonObject attr = attrs.add<JsonObject>();
+        attr["key"] = label.first;
+        attr["value"].to<JsonObject>()["string_value"] = label.second;
+      }
+
+      String output;
+      serializeJson(doc, output);
+      Serial.print("[OTel Gauge] ");
+      Serial.println(output);
+
+      String url = String("http://") + OTEL_COLLECTOR_HOST + ":" + OTEL_COLLECTOR_PORT + "/v1/metrics";
+      http.begin(url);
+      http.addHeader("Content-Type", "application/json");
+      int httpCode = http.POST(output);
+      Serial.printf("[OTel] HTTP POST code: %d\n", httpCode);
+      String payload = http.getString();
+      Serial.println(payload);
+      http.end();
+    }
+
+   private:
+    const char* _name;
+  };
+
+  struct SpanContext {
+    String trace_id;
+    String span_id;
+    String parent_span_id;
+    uint64_t start_time;
+    String name;
+  };
+
+  class Tracer {
+   public:
+    static SpanContext startSpan(const char* name, SpanContext parent = {}) {
+      SpanContext ctx;
+      ctx.trace_id = parent.trace_id.length() ? parent.trace_id : generateId(32);
+      ctx.span_id = generateId(16);
+      ctx.parent_span_id = parent.span_id;
+      ctx.start_time = Logger::currentTimeUnixNano();
+      ctx.name = name;
+      return ctx;
+    }
+
+    static void endSpan(const SpanContext& ctx, std::vector<std::pair<const char*, const char*>> attributes = {}) {
+      HTTPClient http;
+      JsonDocument doc;
+
+      JsonArray resource_spans = doc["resource_spans"].to<JsonArray>();
+      JsonObject resource_span = resource_spans.add<JsonObject>();
+      JsonObject resource = resource_span["resource"].to<JsonObject>();
+      JsonArray resource_attrs = resource["attributes"].to<JsonArray>();
+
+      JsonObject attr1 = resource_attrs.add<JsonObject>();
+      attr1["key"] = "service.name";
+      attr1["value"].to<JsonObject>()["string_value"] = Logger::serviceName;
+
+      JsonObject attr2 = resource_attrs.add<JsonObject>();
+      attr2["key"] = "host.name";
+      attr2["value"].to<JsonObject>()["string_value"] = Logger::hostName;
+
+      JsonObject attr3 = resource_attrs.add<JsonObject>();
+      attr3["key"] = "custom.label";
+      attr3["value"].to<JsonObject>()["string_value"] = Logger::customLabel;
+
+      JsonArray scope_spans = resource_span["scope_spans"].to<JsonArray>();
+      JsonObject scope_span = scope_spans.add<JsonObject>();
+      JsonObject scope = scope_span["scope"].to<JsonObject>();
+      scope["name"] = "otel-embedded";
+      scope["version"] = "1.0";
+      scope_span["schema_url"] = "https://opentelemetry.io/schemas/1.11.0";
+
+      JsonArray spans = scope_span["spans"].to<JsonArray>();
+      JsonObject span = spans.add<JsonObject>();
+      span["name"] = ctx.name;
+      span["trace_id"] = ctx.trace_id;
+      span["span_id"] = ctx.span_id;
+      if (ctx.parent_span_id.length()) span["parent_span_id"] = ctx.parent_span_id;
+      span["start_time_unix_nano"] = ctx.start_time;
+      span["end_time_unix_nano"] = Logger::currentTimeUnixNano();
+
+      JsonArray attrs = span["attributes"].to<JsonArray>();
+      for (auto& label : attributes) {
+        JsonObject attr = attrs.add<JsonObject>();
+        attr["key"] = label.first;
+        attr["value"].to<JsonObject>()["string_value"] = label.second;
+      }
+
+      String output;
+      serializeJson(doc, output);
+      Serial.print("[OTel Trace] ");
+      Serial.println(output);
+
+      String url = String("http://") + OTEL_COLLECTOR_HOST + ":" + OTEL_COLLECTOR_PORT + "/v1/traces";
+      http.begin(url);
+      http.addHeader("Content-Type", "application/json");
+      int httpCode = http.POST(output);
+      Serial.printf("[OTel] HTTP POST code: %d\n", httpCode);
+      String payload = http.getString();
+      Serial.println(payload);
+      http.end();
+    }
+
+   private:
+    static String generateId(size_t length) {
+      const char hex[] = "0123456789abcdef";
+      String id;
+      for (size_t i = 0; i < length; i++) {
+        id += hex[random(0, 16)];
+      }
+      return id;
+    }
+  };
+
 }  // namespace OTel
 
