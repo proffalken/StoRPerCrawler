@@ -1,5 +1,6 @@
-Last Config Dir: /root/ros2_ws/install/storper_sim/share/storper_sim/config
+Last Config Dir: /root/ros2_ws/src
 Last Image Dir: ""
 Recent Configs:
+  - /root/ros2_ws/src/storper.rviz
   - install/storper_sim/share/storper_sim/config/storper.rviz
   - /root/ros2_ws/src/storper_sim/storper.rviz

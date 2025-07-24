@@ -19,7 +19,8 @@ RUN apt-get update && apt-get install -y \
     ros-kilted-ros-gz \
     ros-kilted-gz-ros2-control \
     ros-kilted-gz-tools-vendor \
-    ros-kilted-teleop-twist-keyboard && \
+    ros-kilted-teleop-twist-keyboard \
+    ros-kilted-joint-state-publisher && \
     #ros-kilted-gz-sim \
     #ros-kilted-gz-msgs && \
     rm -rf /var/lib/apt/lists/*

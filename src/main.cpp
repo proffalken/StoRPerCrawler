@@ -10,11 +10,16 @@
 #include "hardware/pwm.h"
 
 
-// StoRPer REAR motor outputs
-#define RIGHT_A 12  // RRIGHT1
-#define RIGHT_B 13  // RRIGHT2
-#define LEFT_A  8  // RLEFT1
-#define LEFT_B  9  // RLEFT2
+// === Pin assignments (confirmed) ===
+#define RIGHT_A 8
+#define RIGHT_B 9
+#define FRONT_RIGHT_A 10
+#define FRONT_RIGHT_B 11
+#define FRONT_LEFT_A 14
+#define FRONT_LEFT_B 15
+#define LEFT_A 12
+#define LEFT_B 13
+
 
 // micro-ROS setup
 rcl_node_t node;
@@ -25,20 +30,39 @@ rcl_subscription_t sub;
 geometry_msgs__msg__Twist cmd_vel_msg;
 
 void setupPWM(int gpio) {
+  Serial.print("Configuring PWM on GPIO ");
+  Serial.println(gpio);
   gpio_set_function(gpio, GPIO_FUNC_PWM);
   uint slice = pwm_gpio_to_slice_num(gpio);
+  Serial.print("Enabling PWM slice ");
+  Serial.println(slice);
   pwm_set_enabled(slice, true);
 }
 
 // Clamp to -1.0 .. 1.0 and convert to 0–255 PWM
 int pwm_value(float speed) {
+  float original = speed;
   speed = constrain(speed, -1.0f, 1.0f);
-  return int(fabs(speed) * 255.0f);  // abs for magnitude, sign handled separately
+  int result = int(fabs(speed) * 255.0f);
+  Serial.print("pwm_value(");
+  Serial.print(original, 3);
+  Serial.print(") => ");
+  Serial.println(result);
+  return result;
 }
 
 // Apply PWM to H-bridge motor driver
 void driveMotor(int pinA, int pinB, float value) {
   int pwm = pwm_value(value);
+  Serial.print("Driving motor with pinA=");
+  Serial.print(pinA);
+  Serial.print(" pinB=");
+  Serial.print(pinB);
+  Serial.print(" value=");
+  Serial.print(value, 3);
+  Serial.print(" pwm=");
+  Serial.println(pwm);
+
   if (value >= 0.0f) {
     analogWrite(pinA, pwm);
     analogWrite(pinB, 0);
@@ -58,15 +82,15 @@ void cmd_vel_callback(const void *msgin) {
   float left_speed = linear - angular;
   float right_speed = linear + angular;
 
-  // Debugging output
-  Serial.print("Twist received - lin.x: ");
-  Serial.print(linear, 3);
-  Serial.print("  ang.z: ");
-  Serial.print(angular, 3);
-  Serial.print("  PWM L: ");
-  Serial.print(pwm_value(left_speed));
-  Serial.print("  R: ");
-  Serial.println(pwm_value(right_speed));
+  Serial.println("cmd_vel_callback: received Twist message");
+  Serial.print("  linear.x = ");
+  Serial.println(linear, 3);
+  Serial.print("  angular.z = ");
+  Serial.println(angular, 3);
+  Serial.print("  left_speed = ");
+  Serial.println(left_speed, 3);
+  Serial.print("  right_speed = ");
+  Serial.println(right_speed, 3);
 
   // Drive motors
   driveMotor(LEFT_A, LEFT_B, left_speed);
@@ -89,6 +113,7 @@ void setup() {
 
   // Set up micro-ROS transport
   IPAddress agent_ip(192, 168, 8, 5);
+  Serial.println("Setting up micro-ROS WiFi transport...");
   set_microros_wifi_transports((char*)WIFI_SSID, (char*)WIFI_PASS, agent_ip, AGENT_PORT);
   delay(2000);
 
@@ -124,7 +149,7 @@ void loop() {
   delay(10);
 
   if (++counter % 50 == 0) {
-    Serial.println("Spinning...");
+    Serial.println("Loop heartbeat: spinning executor");
     digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
   }
 }

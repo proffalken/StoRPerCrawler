@@ -53,16 +53,52 @@ services:
         source install/local_setup.bash
         ros2 launch storper_sim storper_world.launch.py
       '
-      #
-      #    command: >
-      #      bash -c "
-      #         while true; do sleep 300; done
-      #      "
     networks:
       - microros-net
     restart: unless-stopped
     privileged: true
 
+  robot_joint_publisher:
+   build:
+     context: ./sim
+     dockerfile: Dockerfile
+   environment:
+     - ROS_DOMAIN_ID=0
+     - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+   volumes:
+     - ./storper_sim:/root/ros2_ws/src/storper_sim
+   working_dir: /root/ros2_ws
+   command: >
+     bash -c "
+       source /opt/ros/kilted/setup.bash &&
+       cd src/storper_sim &&
+       ros2 run joint_state_publisher joint_state_publisher
+     "
+   networks:
+     - microros-net
+   restart: unless-stopped
+   depends_on:
+     - digital_twin
+       #  robot_state_publisher:
+       #   image: ros:kilted-ros-base
+       #   environment:
+       #     - ROS_DOMAIN_ID=0
+       #     - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+       #   volumes:
+       #     - ./storper_sim:/root/ros2_ws/src/storper_sim
+       #   working_dir: /root/ros2_ws
+       #   command: >
+       #     bash -c "
+       #       source /opt/ros/kilted/setup.bash &&
+       #       cd src/storper_sim &&
+       #       ros2 run robot_state_publisher robot_state_publisher urdf/storper.urdf
+       #     "
+       #   networks:
+       #     - microros-net
+       #   restart: unless-stopped
+       #   depends_on:
+       #     - digital_twin
+  
   rviz:
     build:
       context: ./sim
@@ -89,6 +125,24 @@ services:
     privileged: true
     depends_on:
       - digital_twin
+
+  teleop:
+    build:
+      context: ./sim
+      dockerfile: Dockerfile
+    environment:
+      - ROS_DOMAIN_ID=0
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+    stdin_open: true
+    tty: true
+    networks:
+      - microros-net
+    command: >
+      bash -c "
+        source /opt/ros/kilted/setup.bash &&
+        ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r /cmd_vel:=/rt/cmd_vel
+      "
+
 
 
 networks:
