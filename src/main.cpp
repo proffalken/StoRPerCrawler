@@ -106,13 +106,10 @@ void cmd_vel_callback(const void *msgin) {
 }
 
 void setup() {
-  auto mainSpan = OTel::Tracer::startSpan("setup");
-
-  auto wifiSpan = OTel::Tracer::startSpan("setup_wifi", mainSpan);
   IPAddress agent_ip(192, 168, 8, 5);
   Serial.println("Setting up micro-ROS WiFi transport...");
   set_microros_wifi_transports((char*)WIFI_SSID, (char*)WIFI_PASS, agent_ip, AGENT_PORT);
-  OTel::Tracer::endSpan(wifiSpan);
+  auto mainSpan = OTel::Tracer::startSpan("setup");
   delay(2000);
 
   OTel::Logger::begin("storper_bot", "storper.local", "v0.0.1");
